@@ -21,8 +21,8 @@ import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
-import model.data_structures.ListaEncadenada;
-import model.data_structures.Nodo;
+import model.data_structures.Cola;
+import model.data_structures.Pila;
 /**
  * Definicion del modelo del mundo
  *
@@ -32,16 +32,19 @@ public class Modelo
 	/**
 	 * Estrutura de datos que tendrá los comparendos
 	 */
-	private ListaEncadenada lista;
-	
+	private Pila pila;
+
+	private Cola cola;
+
 	/**
 	 * Constructor
 	 */
 	public Modelo ()
 	{
-		lista = new ListaEncadenada();
+		pila = new Pila();
+		cola = new Cola();
 	}
-	
+
 	/**
 	 * Inicia la lectura del archivo JSON y rellena la lista
 	 * @param path, ruta del archivo a leer
@@ -50,7 +53,7 @@ public class Modelo
 	{
 		Gson gson = new Gson();
 		JsonReader reader;
-		
+
 		try 
 		{
 			readJsonStream(new FileInputStream("./data/"+path));
@@ -64,38 +67,38 @@ public class Modelo
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
 	 * Lee el archivo JSON
 	 * @param in InputStream mediante el cual se hace la lectura, in!=null
 	 * @return lista rellenada con los datos
 	 * @throws IOException si no es posible leer el archivo 
 	 */
-	public ListaEncadenada readJsonStream(InputStream in) throws IOException 
+	public void readJsonStream(InputStream in) throws IOException 
 	{
 		JsonReader reader = new JsonReader(new InputStreamReader(in, "UTF-8"));
 		try 
 		{
-			return readGeneral(reader);
+			readGeneral(reader);
 		} 
 		finally 
 		{
 			reader.close();
 		}
 	}
-	
+
 	/**
 	 * Lee el mensaje general en el archivo
 	 * @param reader JsonReader que debe leer
 	 * @return lista con los comparendos
 	 * @throws IOException si no es posible leer el archivo
 	 */
-	public ListaEncadenada readGeneral(JsonReader reader) throws IOException 
+	public void readGeneral(JsonReader reader) throws IOException 
 	{
 		String type = null;
 		String n = null;
 		String crs = null;
-		
+
 
 		reader.beginObject();
 		while (reader.hasNext()) 
@@ -112,7 +115,7 @@ public class Modelo
 			else if (name.equals("crs"))
 			{
 				String t = null;
-				
+
 				reader.beginObject();
 				while (reader.hasNext())
 				{
@@ -124,7 +127,7 @@ public class Modelo
 					else if(read.equals("properties"))
 					{
 						String p = null;
-						
+
 						reader.beginObject();
 						while(reader.hasNext())
 						{
@@ -149,7 +152,7 @@ public class Modelo
 			}
 			else if( name.equals("features"))
 			{
-				lista = readMessagesArray(reader);
+				readMessagesArray(reader);
 			}
 			else
 			{
@@ -157,28 +160,37 @@ public class Modelo
 			}
 		}
 		reader.endObject();
-		return lista;
 	}
-	
+
 	/**
 	 * Lee el arreglo de mensajes en la sección "features" del archivo de comparendos
 	 * @param reader JsonReeader a leer
 	 * @return lista con los comparendos en el archivo
 	 * @throws IOException si no es posible leer la lista
 	 */
-	public ListaEncadenada readMessagesArray(JsonReader reader) throws IOException 
+	public void readMessagesArray(JsonReader reader) throws IOException 
 	{
-		ListaEncadenada messages = new ListaEncadenada();
+		//		Pila messages = new Pila();
 
 		reader.beginArray();
 		while (reader.hasNext()) 
 		{
-			messages.agregarFinal(readFeatures(reader));
+			try
+			{
+				Infraccion inf = readFeatures(reader);
+				pila.push(inf);
+				cola.agregar(inf);
+			}
+			catch(Exception e)
+			{
+				System.out.println(e.getMessage());
+			}
 		}
 		reader.endArray();
-		return messages;
+		//		return messages;
 	}
-	
+
+
 	/**
 	 * Lee las infracciones de la sección features en el archivo json de los comparendos
 	 * @param reader JsonReader a leer
@@ -224,7 +236,7 @@ public class Modelo
 			return null;
 		}
 	}
-	
+
 	/**
 	 * Lee los datos de la sección properties en el archivo json de los comparendos
 	 * @param reader JsonReader a leer
@@ -278,7 +290,7 @@ public class Modelo
 		reader.endObject();
 		return data;
 	}
-	
+
 	/**
 	 * Lee los datos de la sección geometry del archivo json con los comparendos
 	 * @param reader JsonReader a leer
@@ -289,7 +301,7 @@ public class Modelo
 	{
 		ArrayList<Double> data = new ArrayList();
 		String type = null;
-		
+
 		reader.beginObject();
 		while (reader.hasNext()) 
 		{
@@ -310,7 +322,7 @@ public class Modelo
 		reader.endObject();
 		return data;
 	}
-	
+
 	/**
 	 * Lee el arreglo de doubles en el archivo json con los comparendos en la sección geometry
 	 * @param reader JsonReader a leer
@@ -329,70 +341,165 @@ public class Modelo
 		reader.endArray();
 		return doubles;
 	}
-	
-	/**
-	 * Busca una infracción en la lista con un ID recibido por parámetro
-	 * @param pId ID de la infracción a buscar
-	 * @return Infracción buscada, null si no es encontrada
-	 */
-	public Infraccion buscar(int pId)
-	{
-		Infraccion buscada = null;
-		for(Nodo e = lista.darPrimero() ; e!=null ; e = e.darSiguiente())
-		{
-			Infraccion actual = (Infraccion) e.darElemento();
-			
-			if(actual.getId()==pId)
-			{
-				return actual;
-			}
-		}
-		return null;
-	}
-	
-	/**
-	 * Elimina y retorna una infracción con un id recibido por parámetro
-	 * @param pId ID de la infraccion a eliminar
-	 * @return infraccion eliminada, null si no está la infraccion
-	 */
-	public Infraccion eliminar(int pId)
-	{
-		Infraccion inf = buscar(pId);
-		return (Infraccion) lista.eliminar(inf);
-	}
-	
+
+//	/**
+//	 * Busca una infracción en la lista con un ID recibido por parámetro
+//	 * @param pId ID de la infracción a buscar
+//	 * @return Infracción buscada, null si no es encontrada
+//	 */
+//	public Infraccion buscarPila(int pId)
+//	{
+//		Infraccion buscada = null;
+//		for(int i=0 ; i<pila.darTamano() ; i++)
+//		{
+//			Infraccion actual = (Infraccion) pila.getElementos()[i];
+//
+//			if(actual.getId()==pId)
+//			{
+//				return actual;
+//			}
+//		}
+//		return null;
+//	}
+//
+//	/**
+//	 * Elimina y retorna una infracción con un id recibido por parámetro
+//	 * @param pId ID de la infraccion a eliminar
+//	 * @return infraccion eliminada, null si no está la infraccion
+//	 */
+//	public Infraccion eliminarPila()
+//	{
+//		try
+//		{
+//			Infraccion inf = (Infraccion) pila.pop();
+//			return inf;
+//		}
+//		catch(Exception e)
+//		{
+//			return null;
+//		}
+//	}
+//
 	/**
 	 * Retona el tamaño de la lista
 	 * @return tamaño de la lista
 	 */
-	public int darTamano()
+	public int darTamanoCola()
 	{
-		return lista.darTamano();
+		return cola.darTamano();
 	}
-	
-	/**
-	 * Agrega una infracción recibida por parámetro al final de la lista
-	 * @param pInf infracción a agregar
-	 */
-	public void agregarFinal(Infraccion pInf)
-	{
-		lista.agregarFinal(pInf);
-	}
-	
-	/**
-	 * Agrega una infracción rebida por parámetro al inicio de la lista
-	 * @param pInf nfracción a agregar
-	 */
-	public void agregarInicio(Infraccion pInf)
-	{
-		lista.agregarInicio(pInf);
-	}
-	
+//
+//	/**
+//	 * Agrega una infracción recibida por parámetro al final de la lista
+//	 * @param pInf infracción a agregar
+//	 */
+//	public void agregarPila(Infraccion pInf)
+//	{
+//		try
+//		{
+//			pila.push(pInf);
+//		}
+//		catch(Exception e)
+//		{
+//			System.out.println(e.getMessage());
+//		}
+//	}
+//
+//	/**
+//	 * Agrega una infracción rebida por parámetro a la cola
+//	 * @param pInf nfracción a agregar
+//	 */
+//	public void agregarCola(Infraccion pInf)
+//	{
+//		try
+//		{
+//			cola.agregar(pInf);
+//		}
+//		catch(Exception e)
+//		{
+//			System.out.println(e.getMessage());
+//		}
+//	}
+
 	/**
 	 * retorna la lista encadenada
 	 * @return lista encadenada
 	 */
-	public ListaEncadenada darLista() {
-		return lista;
+	public Pila darPila() {
+		return pila;
+	}
+
+	public Cola darCola()
+	{
+		return cola;
+	}
+
+	public Cola clusterComparendos()
+	{
+		if(cola.esVacia())
+		{
+			return null;
+		}
+
+		Cola agregar = new Cola();
+		Cola anterior = new Cola();
+		Infraccion primero = (Infraccion) cola.darPrimero();
+
+		try
+		{
+			agregar.agregar(primero);
+			String actual = primero.getInfr();
+			String masRep = primero.getInfr();
+			for(int i = cola.getP()+1 ; i<cola.darTamano() ; i++)
+			{
+				Infraccion inf = (Infraccion) cola.getElementos()[i];
+				if(!inf.getInfr().equals(actual))
+				{
+					actual = inf.getInfr();
+					if(anterior.darTamano()<agregar.darTamano())
+					{
+						anterior = agregar;
+					}
+					agregar = new Cola();
+					agregar.agregar(inf);
+				}
+				else
+				{
+					agregar.agregar(inf);
+				}
+			}
+			return agregar.darTamano()>anterior.darTamano()? agregar : anterior;
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+			return null;
+		}			
+	}
+
+	public Cola darUltimos(int pN, String pInfr)
+	{
+		Cola retorno = new Cola();
+		int contador = 0;
+		try
+		{
+			int i = pila.darTamano();
+			while(pila.darTamano()!= 0 && contador<pN)
+			{
+				Infraccion inf = (Infraccion) pila.pop();
+				if(inf.getInfr().equals(pInfr))
+				{
+					retorno.agregar(inf);
+					contador ++;
+				}
+			}
+			
+			return retorno;
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+			return null;
+		}
 	}
 }
