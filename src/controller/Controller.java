@@ -40,7 +40,7 @@ public class Controller {
 			switch(option){
 			case 1:
 				modelo = new Modelo(); 
-				modelo.leerDatos("comparendos_dei_2018_small.geojson");
+				modelo.leerDatos("comparendos_dei_2018.geojson");
 				view.printMessage("Comparendos cargados");
 				view.printMessage("Numero actual de elementos: " + modelo.darTamanoCola() + "\n---------");
 				view.printMessage("Primer comparendo en la pila");
